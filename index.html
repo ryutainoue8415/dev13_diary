@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>chatApp</title>
+    <style>
+      #output li {
+        background: #ccc;
+        list-style: none;
+        /* display: flex; */
+        justify-content: center;
+        align-items: start;
+        gap: 0 22px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>ホメ cha-te</h1>
+    <!-- 入力場所を作成しよう -->
+    <form>
+      <fieldset>
+        <legend>称賛、感心、敬意を感じたらスグchat!!</legend>
+        <div>
+          氏名を選択して下さい:
+          <select name id="name">
+            <optgroup label="運営">
+              <option value="Aさん">Aさん</option>
+              <option value="Bさん">Bさん</option>
+              <option value="Cさん">Cさん</option>
+              <option value="Dさん">Dさん</option>
+            </optgroup>
+            <optgroup label="介護職">
+              <option value="Eさん">Eさん</option>
+              <option value="Fさん">Fさん</option>
+              <option value="Gさん">Gさん</option>
+            </optgroup>
+            <optgroup label="看護職">
+              <option value="Hさん">Hさん</option>
+              <option value="Iさん">Iさん</option>
+              <option value="Jさん">Jさん</option>
+            </optgroup>
+          </select>
+        </div>
+        <div>
+          カテゴリを選択してください:
+          <select category id="category">
+            <option value="喜び">喜び</option>
+            <option value="信頼">信頼</option>
+            <option value="積極的">積極的</option>
+            <option value="優しさ">優しさ</option>
+            <option value="期待">期待</option>
+            <option value="希望">希望</option>
+            <option value="安心">安心</option>
+            <option value="感謝">感謝</option>
+          </select>
+        </div>
+        <div>出来事があった日: <input type="date" id="date"></div>
+        <textarea id="text" placeholder="出来事の内容を入力してください" rows="8" cols="40"></textarea>
+
+        <div>
+          <button type="button" id="send">送信</button>
+        </div>
+      </fieldset>
+    </form>
+
+    <!-- データ出力場所 -->
+    <ul id="output"></ul>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script>
+      // 日時をいい感じの形式にする関数
+      function convertTimestampToDatetime(timestamp) {
+        const _d = timestamp ? new Date(timestamp * 1000) : new Date();
+        const Y = _d.getFullYear();
+        const m = (_d.getMonth() + 1).toString().padStart(2, "0");
+        const d = _d.getDate().toString().padStart(2, "0");
+        const H = _d.getHours().toString().padStart(2, "0");
+        const i = _d.getMinutes().toString().padStart(2, "0");
+        const s = _d.getSeconds().toString().padStart(2, "0");
+        return `${Y}/${m}/${d} ${H}:${i}:${s}`;
+      }
+    </script>
+
+    <!-- <script>   ####ガワさんに教えてもらった事。値をとるのは何のイベントが発生した時かを指示しないといけない####
+    $("#date").on("click",function () {
+      const dateInput = $("#date").val();
+      console.log(dateInput);
+    });
+    </script> -->
+    <!-- 以下にfirebaseのコードを貼り付けよう -->
+
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+      import {
+        getFirestore,
+        collection,
+        addDoc,
+        serverTimestamp,
+        query,
+        orderBy,
+        onSnapshot,
+      } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+      // TODO: Add SDKs for Firebase products that you want to use
+      // https://firebase.google.com/docs/web/setup#available-libraries
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyB50uJ830TCeQUqNi0fqgg60Vf6Ck8x-jQ",
+        authDomain: "diary-6d727.firebaseapp.com",
+        projectId: "diary-6d727",
+        storageBucket: "diary-6d727.appspot.com",
+        messagingSenderId: "607516713318",
+        appId: "1:607516713318:web:d11f2fb2c81f1f696a28a7",
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const q = query(collection(db, "diary"), orderBy("time", "desc")); //データ取得条件の指定（今回は時間の新しい順に並び替えて取得）
+      // データ取得処理//onSnapshot() はデータベース上でデータの変更が発生したタイミングで {} 内の処理を実行する．
+      onSnapshot(q, (querySnapshot) => {
+        console.log(querySnapshot.docs);
+        const documents = [];
+        querySnapshot.docs.forEach(function (doc) {
+          const document = {
+            id: doc.id,
+            data: doc.data(),
+          };
+          documents.push(document);
+        });
+        console.log(documents);
+
+        //#######画面表示するためのタグ生成##############
+        const htmlElements = [];
+        documents.forEach(function (document) {
+          htmlElements.push(`
+    <li id="${document.id}">
+      <p>${document.data.name} ${document.data.date} </p>
+      <p>${document.data.category} ${document.data.text}</p>
+      <p>at ${convertTimestampToDatetime(document.data.time.seconds)}</p>
+    </li>
+  `);
+        });
+        $("#output").html(htmlElements);
+      });
+
+      //送信ボタンクリック時にデータを送信する処理を実装
+      $("#send").on("click", function () {
+        const postData = {
+          name: $("#name").val(),
+          category: $("#category").val(),
+          date: $("#date").val(),
+          text: $("#text").val(),
+          time: serverTimestamp(),
+        };
+        console.log(postData);
+
+        addDoc(collection(db, "diary"), postData);
+        $("#name").val("");
+        $("#category").val("");
+        $("#date").val("");
+        $("#text").val("");
+      });
+    </script>
+  </body>
+</html>
